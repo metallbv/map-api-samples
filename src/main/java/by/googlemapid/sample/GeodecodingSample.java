@@ -4,6 +4,7 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -15,7 +16,7 @@ public class GeodecodingSample extends AbstractSample {
 
     public static void main(final String[] args) throws IOException, JSONException {
 
-        /*ArrayList<String> langagesCities = new ArrayList();
+        ArrayList<String> langagesCities = new ArrayList();
         langagesCities.add("de");
         langagesCities.add("en");
         langagesCities.add("ru");
@@ -30,6 +31,7 @@ public class GeodecodingSample extends AbstractSample {
                 String[] subStr;
                 subStr = line.split("\\t"); // Разделения строки str с помощью метода split()
                 for (int i = 0; i < langagesCities.size(); i++) {
+                    TimeUnit.SECONDS.sleep(1);
                     getCity(subStr[9], subStr[10], langagesCities.get(i));
                 }
                 System.out.println();
@@ -37,6 +39,8 @@ public class GeodecodingSample extends AbstractSample {
             }
         } catch (IOException e) {
             // log error
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         } finally {
             if (reader != null) {
                 try {
@@ -45,9 +49,9 @@ public class GeodecodingSample extends AbstractSample {
                     // log warning
                 }
             }
-        }*/
+        }
 
-        getCity("-26.0833", "-65.263", "ru");
+        //getCity("-26.0833", "-65.263", "ru");
 
         /*final String baseUrl = "http://maps.googleapis.com/maps/api/geocode/json";// путь к Geocoding API по HTTP
         final Map<String, String> params = Maps.newHashMap();
@@ -68,6 +72,10 @@ public class GeodecodingSample extends AbstractSample {
 
     private static void getCity(String s, String s1, String lang) throws IOException, JSONException {
 
+        String locality = null;
+        String administrative_area_level_2 = null;
+        String administrative_area_level_1 = null;
+
         JSONObject location;
         final String baseUrl = "http://maps.googleapis.com/maps/api/geocode/json";// путь к Geocoding API по HTTP
         final Map<String, String> params = Maps.newHashMap();
@@ -81,27 +89,45 @@ public class GeodecodingSample extends AbstractSample {
         final JSONObject response = JsonReader.read(url);// делаем запрос к вебсервису и получаем от него ответ
         JSONArray resultArray = response.getJSONArray("results");
         for (int i = 0; i < resultArray.length(); i++) {
-            location = response.getJSONArray("results").getJSONObject(i);
+            location = resultArray.getJSONObject(i);
             String typesAdress = location.get("types").toString();
             JSONArray arrayTypeAdress = (JSONArray) location.get("types");
             for (int k = 0; k < arrayTypeAdress.length(); k++) {
                 String s2 = (String) arrayTypeAdress.get(k);
                 if (s2.equals("locality")) {
                     JSONArray jsonArray = (JSONArray) location.get("address_components");
-
-                    for (int j = 0; j < jsonArray.length(); j++) {
-                        JSONObject ditails = (JSONObject) jsonArray.get(j);
-                        String check = ditails.toString();
-                        if (check.contains("locality")) {
-                            String long_name = (String) ditails.opt("long_name");
-                            System.out.print(long_name + " "); // city
-                            break;
-                        }
-                    }
+                    locality = getPartOfAdress(jsonArray, "locality");
                     break;
+                } else if (s2.equals("administrative_area_level_2")) {
+                    JSONArray jsonArray = (JSONArray) location.get("address_components");
+                    administrative_area_level_2 = getPartOfAdress(jsonArray, "administrative_area_level_2");
+                } else if (s2.equals("administrative_area_level_1")) {
+                    JSONArray jsonArray = (JSONArray) location.get("address_components");
+                    administrative_area_level_1 = getPartOfAdress(jsonArray, "administrative_area_level_1");
                 }
             }
         }
 
+        if (locality != null) {
+            System.out.print("lang - " + lang + "; city - " + locality + " | "); // city
+        } else if (administrative_area_level_2 != null) {
+            System.out.print("lang - " + lang + "; adm_area2 - " + administrative_area_level_2 + " | "); // city
+        } else if (administrative_area_level_1 != null) {
+            System.out.print("lang - " + lang + "; adm_area1 - " + administrative_area_level_1 + " | "); // city
+        }
+
+    }
+
+    public static String getPartOfAdress(JSONArray jsonArray, String kindOfAdress) throws JSONException {
+
+        for (int j = 0; j < jsonArray.length(); j++) {
+            JSONObject ditails = (JSONObject) jsonArray.get(j);
+            String check = ditails.toString();
+            if (check.contains(kindOfAdress)) {
+                return (String) ditails.opt("long_name");
+            }
+        }
+
+        return "";
     }
 }
